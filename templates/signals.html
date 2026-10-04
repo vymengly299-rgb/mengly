@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Signals · MENGLY{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>Signal History</h1>
+    <p class="muted">{{ stats.wins }} wins · {{ stats.losses }} losses ·
+      win rate {{ stats.win_rate if stats.win_rate is not none else '—' }}{% if stats.win_rate is not none %}%{% endif %}</p>
+  </div>
+</header>
+
+<section class="panel">
+  <form class="filter-bar" method="get">
+    <select name="status">
+      <option value="">All statuses</option>
+      {% for s in ['ACTIVE', 'TP_HIT', 'SL_HIT', 'CANCELLED'] %}
+      <option value="{{ s }}" {{ 'selected' if filters.status == s }}>{{ s }}</option>
+      {% endfor %}
+    </select>
+    <select name="pair">
+      <option value="">All pairs</option>
+      {% for p in pair_list %}
+      <option value="{{ p }}" {{ 'selected' if filters.pair == p }}>{{ p }}</option>
+      {% endfor %}
+    </select>
+    <select name="direction">
+      <option value="">Long &amp; Short</option>
+      <option value="LONG" {{ 'selected' if filters.direction == 'LONG' }}>LONG only</option>
+      <option value="SHORT" {{ 'selected' if filters.direction == 'SHORT' }}>SHORT only</option>
+    </select>
+    <button class="btn primary" type="submit">Filter</button>
+    <a class="btn ghost" href="{{ url_for('signals_page') }}">Reset</a>
+  </form>
+
+  <div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>#</th><th>Pair</th><th>Side</th><th>Entry</th><th>Take Profit</th><th>Stop Loss</th>
+        <th>TF</th><th>Strategy</th><th>Conf.</th><th>Source</th><th>Status</th><th>Opened</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in signals %}
+      <tr>
+        <td class="muted">{{ s.id }}</td>
+        <td class="mono">{{ s.pair }}</td>
+        <td><span class="badge {{ 'long' if s.direction=='LONG' else 'short' }}">{{ s.direction }}</span></td>
+        <td class="mono">{{ s.entry|dp(s.pair) }}</td>
+        <td class="mono green">{{ s.take_profit|dp(s.pair) }}</td>
+        <td class="mono red">{{ s.stop_loss|dp(s.pair) }}</td>
+        <td>{{ s.timeframe }}</td>
+        <td>
+          {{ s.strategy }}
+          {% if s.reason %}<div class="reason" title="{{ s.reason }}">ⓘ model rationale</div>{% endif %}
+        </td>
+        <td>
+          <div class="conf-cell">
+            <div class="conf-bar"><span style="width: {{ s.confidence }}%"></span></div>
+            <small>{{ s.confidence }}%</small>
+          </div>
+        </td>
+        <td><span class="tag {{ 'cyan' if s.source == 'AI' else 'amber' }}">{{ s.source }}</span></td>
+        <td>
+          <span class="badge status {{ s.status|lower }}">
+            {{ {'ACTIVE':'ACTIVE','TP_HIT':'TP HIT','SL_HIT':'SL HIT','CANCELLED':'CANCELLED'}[s.status] }}
+          </span>
+        </td>
+        <td class="muted">{{ s.created_at|time_ago }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="12" class="empty">No signals match these filters yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endblock %}

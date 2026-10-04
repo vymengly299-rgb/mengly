@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}Admin Panel · MENGLY{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>Admin Panel</h1>
+    <p class="muted">User management · signal desk · AI engine controls</p>
+  </div>
+  <div class="head-tags">
+    <span class="tag cyan">{{ users|length }} users</span>
+    <span class="tag">{{ stats.active }} active signals</span>
+  </div>
+</header>
+
+<section class="panel">
+  <div class="panel-head"><h2>User Management</h2><span class="muted">every user signs in with a password</span></div>
+
+  <form method="post" action="{{ url_for('create_user') }}" class="form inline">
+    <label>Username
+      <input type="text" name="username" required minlength="3" maxlength="20"
+             pattern="[A-Za-z0-9_.]+" placeholder="e.g. analyst_kim">
+    </label>
+    <label>Password
+      <input type="password" name="password" required minlength="6" placeholder="min 6 characters">
+    </label>
+    <label>Role
+      <select name="role">
+        <option value="user">User (viewer)</option>
+        <option value="admin">Admin</option>
+      </select>
+    </label>
+    <button class="btn primary" type="submit">+ Create user</button>
+  </form>
+
+  <div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr><th>ID</th><th>Username</th><th>Role</th><th>Status</th><th>Created by</th><th>Created</th><th class="right">Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td class="muted">{{ u.id }}</td>
+        <td>
+          <span class="user-inline">
+            <span class="avatar sm">{{ u.username[:1]|upper }}</span> {{ u.username }}
+            {% if u.id == session.uid %}<em class="muted">(you)</em>{% endif %}
+          </span>
+        </td>
+        <td><span class="tag {{ 'cyan' if u.role == 'admin' else '' }}">{{ u.role }}</span></td>
+        <td>
+          <span class="badge status {{ 'active' if u.active else 'cancelled' }}">
+            {{ 'ACTIVE' if u.active else 'DISABLED' }}
+          </span>
+        </td>
+        <td class="muted">{{ u.created_by or '—' }}</td>
+        <td class="muted">{{ u.created_at|time_ago }}</td>
+        <td class="right actions">
+          <form method="post" action="{{ url_for('reset_password', uid=u.id) }}" class="inline-mini">
+            <input type="password" name="password" placeholder="new password" minlength="6" required>
+            <button class="btn tiny ghost" type="submit">Reset&nbsp;pw</button>
+          </form>
+          <form method="post" action="{{ url_for('toggle_user', uid=u.id) }}">
+            <button class="btn tiny {{ 'ghost' if u.active else 'primary' }}" type="submit">
+              {{ 'Disable' if u.active else 'Enable' }}
+            </button>
+          </form>
+          <form method="post" action="{{ url_for('delete_user', uid=u.id) }}"
+                onsubmit="return confirm('Delete user {{ u.username }}?');">
+            <button class="btn tiny danger" type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<div class="duo">
+  <section class="panel">
+    <div class="panel-head"><h2>AI Engine</h2><span class="pulse-dot"></span></div>
+    <form method="post" action="{{ url_for('update_settings') }}" class="form stack">
+      <label class="switch-row">
+        <span>Automatic signal generation</span>
+        <select name="ai_auto">
+          <option value="1" {{ 'selected' if settings.ai_auto }}>Enabled</option>
+          <option value="0" {{ 'selected' if not settings.ai_auto }}>Paused</option>
+        </select>
+      </label>
+      <label class="switch-row">
+        <span>Max concurrent active signals</span>
+        <input type="number" name="max_active" min="1" max="20" value="{{ settings.max_active }}">
+      </label>
+      <label class="switch-row">
+        <span>Risk appetite</span>
+        <select name="risk">
+          {% for r in ['conservative', 'balanced', 'aggressive'] %}
+          <option value="{{ r }}" {{ 'selected' if settings.risk == r }}>{{ r|capitalize }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="btn-row">
+        <button class="btn primary" type="submit">Save settings</button>
+      </div>
+    </form>
+    <form method="post" action="{{ url_for('force_generate') }}" class="gen-form">
+      <button class="btn block accent" type="submit">⚡ Force AI signal now</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Manual Signal Desk</h2><span class="muted">admin override</span></div>
+    <form method="post" action="{{ url_for('create_signal') }}" class="form stack">
+      <div class="grid-2">
+        <label>Pair
+          <select name="pair">{% for p in pair_list %}<option>{{ p }}</option>{% endfor %}</select>
+        </label>
+        <label>Direction
+          <select name="direction"><option>LONG</option><option>SHORT</option></select>
+        </label>
+        <label>Timeframe
+          <select name="timeframe">{% for t in timeframes %}<option>{{ t }}</option>{% endfor %}</select>
+        </label>
+        <label>Entry <span class="muted">(blank = market)</span>
+          <input type="text" name="entry" placeholder="auto">
+        </label>
+        <label>Take profit <span class="muted">(blank = auto)</span>
+          <input type="text" name="take_profit" placeholder="auto">
+        </label>
+        <label>Stop loss <span class="muted">(blank = auto)</span>
+          <input type="text" name="stop_loss" placeholder="auto">
+        </label>
+      </div>
+      <button class="btn primary" type="submit">Place manual signal</button>
+    </form>
+  </section>
+</div>
+
+<section class="panel">
+  <div class="panel-head"><h2>Open Signals</h2>
+    <a class="link" href="{{ url_for('signals_page') }}">Full history →</a>
+  </div>
+  <div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr><th>#</th><th>Pair</th><th>Side</th><th>Entry</th><th>TP</th><th>SL</th><th>Source</th><th>Conf.</th><th>Opened</th><th class="right">Action</th></tr>
+    </thead>
+    <tbody>
+      {% for s in signals %}
+      <tr>
+        <td class="muted">{{ s.id }}</td>
+        <td class="mono">{{ s.pair }}</td>
+        <td><span class="badge {{ 'long' if s.direction=='LONG' else 'short' }}">{{ s.direction }}</span></td>
+        <td class="mono">{{ s.entry|dp(s.pair) }}</td>
+        <td class="mono green">{{ s.take_profit|dp(s.pair) }}</td>
+        <td class="mono red">{{ s.stop_loss|dp(s.pair) }}</td>
+        <td><span class="tag {{ 'cyan' if s.source=='AI' else 'amber' }}">{{ s.source }}</span></td>
+        <td>{{ s.confidence }}%</td>
+        <td class="muted">{{ s.created_at|time_ago }}</td>
+        <td class="right">
+          <form method="post" action="{{ url_for('cancel_signal', sid=s.id) }}">
+            <button class="btn tiny danger" type="submit">Cancel</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="10" class="empty">No open signals right now.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endblock %}

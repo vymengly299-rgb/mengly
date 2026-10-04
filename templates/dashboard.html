@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · MENGLY{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>Command Center</h1>
+    <p class="muted">Live AI signal desk · simulated market feed</p>
+  </div>
+  <div class="head-tags">
+    <span class="tag" id="clock">--:--:-- UTC</span>
+    <span class="tag {{ 'green' if ai_auto else 'amber' }}">{{ 'AI auto-trading ON' if ai_auto else 'AI auto-trading OFF' }}</span>
+  </div>
+</header>
+
+<section class="stat-grid" id="stat-grid">
+  <div class="stat-card">
+    <span class="stat-label">AI Avg Confidence</span>
+    <span class="stat-value" id="stat-conf">{{ stats.avg_conf }}%</span>
+    <span class="stat-sub">last 20 signals</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Active Signals</span>
+    <span class="stat-value" id="stat-active">{{ stats.active }}</span>
+    <span class="stat-sub">open positions</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Win Rate</span>
+    <span class="stat-value" id="stat-winrate">{{ stats.win_rate if stats.win_rate is not none else '—' }}{% if stats.win_rate is not none %}%{% endif %}</span>
+    <span class="stat-sub">{{ stats.wins }}W / {{ stats.losses }}L closed</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Realized R</span>
+    <span class="stat-value {{ 'green' if stats.realized_r >= 0 else 'red' }}" id="stat-r">{{ '%+g'|format(stats.realized_r) }}R</span>
+    <span class="stat-sub">{{ stats.today }} signals today</span>
+  </div>
+</section>
+
+<section class="market-strip" id="market-strip">
+  {% for m in market %}
+  <button class="pair-card" data-pair="{{ m.pair }}" data-dp="{{ m.dp }}">
+    <div class="pair-top">
+      <span class="pair-name">{{ m.pair }}</span>
+      <span class="pair-chg {{ 'up' if m.change_pct >= 0 else 'down' }}">{{ '%+.2f'|format(m.change_pct) }}%</span>
+    </div>
+    <div class="pair-price" data-role="price">{{ '%.*f'|format(m.dp, m.price) }}</div>
+    <canvas class="spark" data-role="spark" width="180" height="44"></canvas>
+  </button>
+  {% endfor %}
+</section>
+
+<div class="duo">
+  <section class="panel chart-panel">
+    <div class="panel-head">
+      <div>
+        <h2 id="chart-title">{{ market[0].pair }}</h2>
+        <span class="muted" id="chart-sub">live · 30s bars</span>
+      </div>
+      <div class="chart-price" id="chart-price"></div>
+    </div>
+    <canvas id="candles" height="320"></canvas>
+  </section>
+
+  <section class="panel feed-panel">
+    <div class="panel-head"><h2>AI Activity</h2><span class="pulse-dot"></span></div>
+    <ul class="feed" id="feed">
+      {% for row in feed %}
+      <li class="feed-item">
+        <span class="feed-dot {{ 'green' if row.status == 'TP_HIT' else ('red' if row.status == 'SL_HIT' else 'cyan') }}"></span>
+        <div class="feed-body">
+          {% if row.status == 'ACTIVE' %}
+            <strong>{{ row.strategy }}</strong> flagged <em class="{{ 'long' if row.direction=='LONG' else 'short' }}">{{ row.direction }}</em> {{ row.pair }} @ {{ row.confidence }}%
+          {% elif row.status == 'TP_HIT' %}
+            <strong>Take-profit hit</strong> on {{ row.direction }} {{ row.pair }}
+          {% elif row.status == 'SL_HIT' %}
+            <strong>Stop-loss hit</strong> on {{ row.direction }} {{ row.pair }}
+          {% else %}
+            <strong>Signal cancelled</strong> — {{ row.pair }}
+          {% endif %}
+          <span class="feed-time">{{ (row.closed_at or row.created_at)|time_ago }}</span>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+</div>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2>Active Signals</h2>
+    <a class="link" href="{{ url_for('signals_page') }}">View history →</a>
+  </div>
+  <div class="table-wrap">
+  <table class="table" id="active-table">
+    <thead>
+      <tr>
+        <th>#</th><th>Pair</th><th>Side</th><th>Entry</th><th>Take Profit</th><th>Stop Loss</th>
+        <th>Timeframe</th><th>Strategy</th><th>Confidence</th><th>Progress</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in signals %}
+      <tr>
+        <td class="muted">{{ s.id }}</td>
+        <td class="mono">{{ s.pair }}</td>
+        <td><span class="badge {{ 'long' if s.direction=='LONG' else 'short' }}">{{ s.direction }}</span></td>
+        <td class="mono">{{ s.entry|dp(s.pair) }}</td>
+        <td class="mono green">{{ s.take_profit|dp(s.pair) }}</td>
+        <td class="mono red">{{ s.stop_loss|dp(s.pair) }}</td>
+        <td>{{ s.timeframe }}</td>
+        <td>{{ s.strategy }}</td>
+        <td>
+          <div class="conf-cell">
+            <div class="conf-bar"><span style="width: {{ s.confidence }}%"></span></div>
+            <small>{{ s.confidence }}%</small>
+          </div>
+        </td>
+        <td>
+          <div class="prog" title="position between SL and TP">
+            <div class="prog-track"><span class="prog-marker" style="left: {{ s.progress }}%"></span></div>
+            <div class="prog-labels"><small>SL</small><small>TP</small></div>
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="10" class="empty">No active signals — the AI engine is scanning the market…</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<script>
+  window.__INITIAL__ = {
+    market: {{ market|tojson }},
+    signals: {{ signals|tojson }},
+    selected: "{{ market[0].pair }}"
+  };
+</script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}
