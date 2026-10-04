@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in · MENGLY AI</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="login-body">
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="brand big">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 17 9 11 13 15 21 7"></polyline>
+          <polyline points="15 7 21 7 21 13"></polyline>
+        </svg>
+      </div>
+      <div class="brand-text">MENGLY<span>AI Trade Signals</span></div>
+    </div>
+    <h1>Sign in</h1>
+    <p class="muted">Access your AI-powered trading dashboard.</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for cat, msg in messages %}
+        <div class="flash {{ cat }}">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="post" class="form" autocomplete="off">
+      <label>Username
+        <input type="text" name="username" required autofocus placeholder="admin">
+      </label>
+      <label>Password
+        <input type="password" name="password" required placeholder="••••••••">
+      </label>
+      <button class="btn primary block" type="submit">Sign in</button>
+    </form>
+
+    <div class="demo-box">
+      <strong>Demo accounts</strong>
+      <div class="demo-row"><span>Admin</span><code>admin / Admin@123</code></div>
+      <div class="demo-row"><span>Trader</span><code>trader / Trader@123</code></div>
+      <small>Admins can create more users — every account has its own password.</small>
+    </div>
+  </div>
+  <p class="login-foot">Simulated market data · Not financial advice</p>
+</div>
+</body>
+</html>
